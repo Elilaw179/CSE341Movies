@@ -1,9 +1,10 @@
+ 
 
-const express = require('express');
+ const express = require('express');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
 const { getDb } = require('../db/connect');
-
+const { checkJwt } = require('../middleware/auth');
 
 /**
  * @swagger
@@ -19,18 +20,14 @@ const { getDb } = require('../db/connect');
  *       properties:
  *         name:
  *           type: string
- *           example: Tom Hanks
  *         age:
  *           type: integer
- *           example: 65
  *         country:
  *           type: string
- *           example: USA
  *         movies:
  *           type: array
  *           items:
  *             type: string
- *           example: ["Forrest Gump", "Toy Story"]
  */
 
 /**
@@ -45,8 +42,8 @@ const { getDb } = require('../db/connect');
 router.get('/', async (req, res) => {
   try {
     const db = getDb();
-    const result = await db.collection('actors').find().toArray();
-    res.status(200).json(result);
+    const actors = await db.collection('actors').find().toArray();
+    res.status(200).json(actors);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -56,7 +53,7 @@ router.get('/', async (req, res) => {
  * @swagger
  * /actors/{id}:
  *   get:
- *     summary: Get an actor by ID
+ *     summary: Get actor by ID
  *     parameters:
  *       - in: path
  *         name: id
@@ -65,28 +62,30 @@ router.get('/', async (req, res) => {
  *           type: string
  *     responses:
  *       200:
- *         description: Actor object
+ *         description: Actor found
  */
 router.get('/:id', async (req, res) => {
   try {
     const db = getDb();
-    const actorId = new ObjectId(req.params.id);
-    const result = await db.collection('actors').findOne({ _id: actorId });
-    res.status(200).json(result);
+    const actor = await db
+      .collection('actors')
+      .findOne({ _id: new ObjectId(req.params.id) });
+
+    if (!actor) return res.status(404).json({ error: 'Actor not found' });
+
+    res.status(200).json(actor);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
- 
-
-
-
 /**
  * @swagger
  * /actors:
  *   post:
- *     summary: Create a new actor
+ *     summary: Create actor
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -97,30 +96,28 @@ router.get('/:id', async (req, res) => {
  *       201:
  *         description: Actor created
  */
- 
-router.post('/', async (req, res) => {
+router.post('/', checkJwt, async (req, res) => {
   try {
+    const { name, age, country, movies } = req.body;
+    if (!name || !age || !country || !movies) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
     const db = getDb();
-    const actor = {
-      name: req.body.name,
-      age: req.body.age,
-      country: req.body.country,
-      movies: req.body.movies
-    };
-    const result = await db.collection('actors').insertOne(actor);
+    const result = await db.collection('actors').insertOne({ name, age, country, movies });
     res.status(201).json({ id: result.insertedId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
- 
-
 /**
  * @swagger
  * /actors/{id}:
  *   put:
- *     summary: Update an actor
+ *     summary: Update actor
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -133,57 +130,55 @@ router.post('/', async (req, res) => {
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/Actor'
- *     responses:
- *       204:
- *         description: Actor updated
  */
-
-
-router.put('/:id', async (req, res) => {
+router.put('/:id', checkJwt, async (req, res) => {
   try {
+    const { name, age, country, movies } = req.body;
+    if (!name || !age || !country || !movies) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
     const db = getDb();
-    const actorId = new ObjectId(req.params.id);
-    const actor = {
-      name: req.body.name,
-      age: req.body.age,
-      country: req.body.country,
-      movies: req.body.movies
-    };
-    const result = await db.collection('actors').replaceOne({ _id: actorId }, actor);
-    if (result.modifiedCount > 0) res.status(204).send();
-    else res.status(500).json({ error: 'Failed to update actor' });
+    const result = await db.collection('actors').replaceOne(
+      { _id: new ObjectId(req.params.id) },
+      { name, age, country, movies }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Actor not found' });
+    }
+
+    res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
- 
 /**
  * @swagger
  * /actors/{id}:
  *   delete:
- *     summary: Delete an actor
+ *     summary: Delete actor
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *     responses:
- *       200:
- *         description: Actor deleted successfully
- *       500:
- *         description: Failed to delete actor
  */
-
-
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', checkJwt, async (req, res) => {
   try {
     const db = getDb();
-    const actorId = new ObjectId(req.params.id);
-    const result = await db.collection('actors').deleteOne({ _id: actorId });
-    if (result.deletedCount > 0) res.status(200).json({ message: 'Actor deleted' });
-    else res.status(500).json({ error: 'Failed to delete actor' });
+    const result = await db.collection('actors')
+      .deleteOne({ _id: new ObjectId(req.params.id) });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Actor not found' });
+    }
+
+    res.status(200).json({ message: 'Actor deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -1,0 +1,330 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Project2 API",
+    "version": "1.0.0",
+    "description": "Actors & Movies API"
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Actor": {
+        "type": "object",
+        "required": [
+          "name",
+          "age",
+          "country",
+          "movies"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "age": {
+            "type": "integer"
+          },
+          "country": {
+            "type": "string"
+          },
+          "movies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Movie": {
+        "type": "object",
+        "required": [
+          "title",
+          "genre",
+          "director",
+          "releaseYear",
+          "rating",
+          "actors",
+          "boxOffice"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Inception"
+          },
+          "genre": {
+            "type": "string",
+            "example": "Sci-Fi"
+          },
+          "director": {
+            "type": "string",
+            "example": "Christopher Nolan"
+          },
+          "releaseYear": {
+            "type": "integer",
+            "example": 2010
+          },
+          "rating": {
+            "type": "number",
+            "example": 8.8
+          },
+          "actors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Leonardo DiCaprio"
+            ]
+          },
+          "boxOffice": {
+            "type": "string",
+            "example": "$829 million"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/actors": {
+      "get": {
+        "summary": "Get all actors",
+        "responses": {
+          "200": {
+            "description": "List of actors"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create actor",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Actor"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Actor created"
+          }
+        }
+      }
+    },
+    "/actors/{id}": {
+      "get": {
+        "summary": "Get actor by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actor found"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update actor",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Actor"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete actor",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/movies": {
+      "get": {
+        "summary": "Get all movies",
+        "tags": [
+          "Movies"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of movies"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create movie",
+        "tags": [
+          "Movies"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Movie"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Movie created"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/movies/{id}": {
+      "get": {
+        "summary": "Get movie by ID",
+        "tags": [
+          "Movies"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Movie found"
+          },
+          "404": {
+            "description": "Movie not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update movie",
+        "tags": [
+          "Movies"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Movie"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Movie updated"
+          },
+          "404": {
+            "description": "Movie not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete movie",
+        "tags": [
+          "Movies"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Movie deleted"
+          },
+          "404": {
+            "description": "Movie not found"
+          }
+        }
+      }
+    }
+  },
+  "tags": []
+}

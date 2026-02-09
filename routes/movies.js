@@ -1,10 +1,10 @@
+ 
 
 const express = require('express');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
 const { getDb } = require('../db/connect');
-
-
+const { checkJwt } = require('../middleware/auth');
 
 /**
  * @swagger
@@ -40,10 +40,10 @@ const { getDb } = require('../db/connect');
  *           type: array
  *           items:
  *             type: string
- *           example: ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+ *           example: ["Leonardo DiCaprio"]
  *         boxOffice:
  *           type: string
- *           example: "$829M"
+ *           example: $829 million
  */
 
 /**
@@ -51,22 +51,27 @@ const { getDb } = require('../db/connect');
  * /movies:
  *   get:
  *     summary: Get all movies
+ *     tags: [Movies]
+ *     responses:
+ *       200:
+ *         description: List of movies
  */
 router.get('/', async (req, res) => {
   try {
     const db = getDb();
-    const result = await db.collection('movies').find().toArray();
-    res.status(200).json(result);
+    const movies = await db.collection('movies').find().toArray();
+    res.status(200).json(movies);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
- /**
+/**
  * @swagger
  * /movies/{id}:
  *   get:
- *     summary: Get a movie by ID
+ *     summary: Get movie by ID
+ *     tags: [Movies]
  *     parameters:
  *       - in: path
  *         name: id
@@ -75,26 +80,34 @@ router.get('/', async (req, res) => {
  *           type: string
  *     responses:
  *       200:
- *         description: Movie object
+ *         description: Movie found
+ *       404:
+ *         description: Movie not found
  */
-
 router.get('/:id', async (req, res) => {
   try {
     const db = getDb();
-    const movieId = new ObjectId(req.params.id);
-    const result = await db.collection('movies').findOne({ _id: movieId });
-    res.status(200).json(result);
+    const movie = await db.collection('movies')
+      .findOne({ _id: new ObjectId(req.params.id) });
+
+    if (!movie) {
+      return res.status(404).json({ error: 'Movie not found' });
+    }
+
+    res.status(200).json(movie);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
- 
 /**
  * @swagger
  * /movies:
  *   post:
- *     summary: Create a new movie
+ *     summary: Create movie
+ *     tags: [Movies]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -104,21 +117,26 @@ router.get('/:id', async (req, res) => {
  *     responses:
  *       201:
  *         description: Movie created
+ *       400:
+ *         description: Validation error
  */
-
-
-router.post('/', async (req, res) => {
+router.post('/', checkJwt, async (req, res) => {
   try {
+    const movie = req.body;
+
+    if (
+      !movie.title ||
+      !movie.genre ||
+      !movie.director ||
+      movie.releaseYear === undefined ||
+      movie.rating === undefined ||
+      !Array.isArray(movie.actors) ||
+      !movie.boxOffice
+    ) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
     const db = getDb();
-    const movie = {
-      title: req.body.title,
-      genre: req.body.genre,
-      director: req.body.director,
-      releaseYear: req.body.releaseYear,
-      rating: req.body.rating,
-      actors: req.body.actors,
-      boxOffice: req.body.boxOffice
-    };
     const result = await db.collection('movies').insertOne(movie);
     res.status(201).json({ id: result.insertedId });
   } catch (err) {
@@ -126,12 +144,14 @@ router.post('/', async (req, res) => {
   }
 });
 
- 
 /**
  * @swagger
  * /movies/{id}:
  *   put:
- *     summary: Update a movie
+ *     summary: Update movie
+ *     tags: [Movies]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -147,36 +167,35 @@ router.post('/', async (req, res) => {
  *     responses:
  *       204:
  *         description: Movie updated
+ *       404:
+ *         description: Movie not found
  */
-
-
-router.put('/:id', async (req, res) => {
+router.put('/:id', checkJwt, async (req, res) => {
   try {
     const db = getDb();
-    const movieId = new ObjectId(req.params.id);
-    const movie = {
-      title: req.body.title,
-      genre: req.body.genre,
-      director: req.body.director,
-      releaseYear: req.body.releaseYear,
-      rating: req.body.rating,
-      actors: req.body.actors,
-      boxOffice: req.body.boxOffice
-    };
-    const result = await db.collection('movies').replaceOne({ _id: movieId }, movie);
-    if (result.modifiedCount > 0) res.status(204).send();
-    else res.status(500).json({ error: 'Failed to update movie' });
+    const result = await db.collection('movies').replaceOne(
+      { _id: new ObjectId(req.params.id) },
+      req.body
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Movie not found' });
+    }
+
+    res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
- 
 /**
  * @swagger
  * /movies/{id}:
  *   delete:
- *     summary: Delete a movie
+ *     summary: Delete movie
+ *     tags: [Movies]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -186,26 +205,23 @@ router.put('/:id', async (req, res) => {
  *     responses:
  *       200:
  *         description: Movie deleted
+ *       404:
+ *         description: Movie not found
  */
-
-
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', checkJwt, async (req, res) => {
   try {
     const db = getDb();
-    const movieId = new ObjectId(req.params.id);
-    const result = await db.collection('movies').deleteOne({ _id: movieId });
-    if (result.deletedCount > 0) res.status(200).json({ message: 'Movie deleted' });
-    else res.status(500).json({ error: 'Failed to delete movie' });
+    const result = await db.collection('movies')
+      .deleteOne({ _id: new ObjectId(req.params.id) });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Movie not found' });
+    }
+
+    res.status(200).json({ message: 'Movie deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 module.exports = router;
-
-
-
-
-
-
-
